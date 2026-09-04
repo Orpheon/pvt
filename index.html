@@ -206,7 +206,7 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; padding
     <summary>How to read this</summary>
     <p class="muted">The test measures how quickly you notice and tap a counter that appears at random intervals. Sleep loss slows the average, and above all makes the slow tail slower: more lapses (taps slower than 355 ms) and more false starts. Response speed is 1 divided by reaction time in seconds, so higher is better and it is less distorted by the occasional very slow tap than mean reaction time is.</p>
     <p class="muted">Compare yourself against yourself. Same phone, same posture, same time relative to waking, before caffeine. A 3-minute test underestimates real-world impairment because the vigilance decrement grows with time on task, so treat the line as a trend, not a fitness check. Absolute numbers include your phone's touch latency and will not match published lab values.</p>
-    <p class="muted">The performance score is Basner and Dinges' PVT-B summary: the percentage of responses that were neither lapses nor false starts. Their 2011 comparison of PVT outcome metrics found lapses plus false starts, and mean response speed, to be the most sensitive to sleep loss, so the score chart is the one line to follow and the others explain it.</p>
+    <p class="muted">The performance score is Basner and Dinges' PVT-B summary: the percentage of responses that were neither lapses nor false starts. Their 2011 comparison of PVT outcome metrics found lapses plus false starts, and mean response speed, to be the most sensitive to sleep loss, Response speed is the line to follow: it has no ceiling, so it still separates rested from very rested mornings, where the score sits pinned near 100. False starts have no reaction time and so do not enter speed; they show up in the score.</p>
     <p class="muted">Protocol after Basner, Mollicone &amp; Dinges (2011), PVT-B: 3 min, 1–4 s inter-stimulus interval, lapse ≥ 355 ms, false start = tap before the stimulus or within 100 ms of it.</p>
   </details>
   <p class="muted" style="margin-top:24px">Data is stored only on this device. Export regularly. <span id="ver"></span></p>
@@ -246,7 +246,7 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; padding
 
 <script>
 'use strict';
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 const LS_KEY = 'pvt.sessions.v1';
 const LS_SET = 'pvt.settings.v1';
 const LS_EXP = 'pvt.lastExport';
@@ -457,10 +457,10 @@ function showResult(s) {
   history.pushState({ screen: 'result' }, '');
   const prev = sessions.filter(x => x.ts < s.ts).slice(-7);
   $('resultHero').innerHTML = '';
-  $('resultHero').appendChild(tile('Performance score', r1(scoreOf(s)) + ' %', prev.length ? deltaText(scoreOf(s), mean(prev.map(scoreOf)), true, 1, ' %') : null, true));
-  $('resultHero').appendChild(tile('Response speed', r2(s.speed) + ' /s', prev.length ? deltaText(s.speed, mean(prev.map(p => p.speed)), true, 2, ' /s') : null, false));
+  $('resultHero').appendChild(tile('Response speed', r2(s.speed) + ' /s', prev.length ? deltaText(s.speed, mean(prev.map(p => p.speed)), true, 2, ' /s') : null, true));
+  $('resultHero').appendChild(tile('Performance score', r1(scoreOf(s)) + ' %', prev.length ? deltaText(scoreOf(s), mean(prev.map(scoreOf)), true, 1, ' %') : null, false));
   const kv = $('resultKv'); kv.innerHTML = '';
-  [['Performance score', r1(scoreOf(s)) + ' %'], ['Trials', s.trials], ['Mean RT', r0(s.meanRt) + ' ms'], ['Median RT', r0(s.medianRt) + ' ms'], ['Lapses ≥ 355 ms', s.lapses], ['Lapses ≥ 500 ms', s.lapses500],
+  [['Response speed', r2(s.speed) + ' /s'], ['Performance score', r1(scoreOf(s)) + ' %'], ['Trials', s.trials], ['Mean RT', r0(s.meanRt) + ' ms'], ['Median RT', r0(s.medianRt) + ' ms'], ['Lapses ≥ 355 ms', s.lapses], ['Lapses ≥ 500 ms', s.lapses500],
    ['False starts', s.falseStarts], ['Fastest 10 %', r0(s.fastest10) + ' ms'], ['Slowest 10 %', r0(s.slowest10) + ' ms'], ['SD of RT', r0(s.sdRt) + ' ms']]
    .forEach(([k, v]) => { const a = document.createElement('span'); a.textContent = k; const b = document.createElement('b'); b.textContent = v; kv.append(a, b); });
   $('sleepH').value = s.sleepHours == null ? '' : s.sleepHours;
@@ -517,8 +517,8 @@ function renderHome() {
   if (sessions.length) {
     const s = sessions[sessions.length - 1];
     const prev = sessions.slice(-8, -1);
-    h.appendChild(tile('Performance score · ' + fmtShort(s.ts), r1(scoreOf(s)) + ' %', prev.length ? deltaText(scoreOf(s), mean(prev.map(scoreOf)), true, 1, ' %') : null, true));
-    h.appendChild(tile('Response speed', r2(s.speed) + ' /s', prev.length ? deltaText(s.speed, mean(prev.map(p => p.speed)), true, 2, ' /s') : null, false));
+    h.appendChild(tile('Response speed · ' + fmtShort(s.ts), r2(s.speed) + ' /s', prev.length ? deltaText(s.speed, mean(prev.map(p => p.speed)), true, 2, ' /s') : null, true));
+    h.appendChild(tile('Performance score', r1(scoreOf(s)) + ' %', prev.length ? deltaText(scoreOf(s), mean(prev.map(scoreOf)), true, 1, ' %') : null, false));
   } else {
     const t = document.createElement('div'); t.className = 'muted'; t.style.gridColumn = '1 / -1'; t.textContent = 'No sessions yet.'; h.appendChild(t);
   }
@@ -530,8 +530,8 @@ function renderHome() {
 }
 
 const METRICS = [
-  { key: 'score', title: 'Performance score (%), higher is better', unit: ' %', fmt: r1, get: scoreOf, primary: true, cap: 100 },
-  { key: 'speed', title: 'Response speed (1/s), higher is better', unit: '/s', fmt: r2 },
+  { key: 'speed', title: 'Response speed (1/s), higher is better', unit: '/s', fmt: r2, primary: true },
+  { key: 'score', title: 'Performance score (%), higher is better', unit: ' %', fmt: r1, get: scoreOf, cap: 100 },
   { key: 'lf', title: 'Lapses + false starts, lower is better', unit: '', fmt: r0, get: s => s.lapses + s.falseStarts, int: true },
   { key: 'slowest10', title: 'Slowest 10 % of taps (ms), lower is better', unit: ' ms', fmt: r0 },
 ];
@@ -546,7 +546,7 @@ function renderReadout(data) {
   d.textContent = fmtDate(s.ts) + ' ' + fmtTime(s.ts) + ' ';
   const sp = document.createElement('span'); sp.textContent = (s.sleepHours != null ? s.sleepHours + ' h slept · ' : '') + (s.note || ''); d.appendChild(sp);
   r.appendChild(d);
-  [['Score %', r1(scoreOf(s))], ['Speed', r2(s.speed)], ['Lapses', String(s.lapses)], ['False st.', String(s.falseStarts)], ['Slow 10 %', r0(s.slowest10)]].forEach(([k, v]) => {
+  [['Speed', r2(s.speed)], ['Score %', r1(scoreOf(s))], ['Lapses', String(s.lapses)], ['False st.', String(s.falseStarts)], ['Slow 10 %', r0(s.slowest10)]].forEach(([k, v]) => {
     const c = document.createElement('div'); const b = document.createElement('b'); b.textContent = v; c.appendChild(b); c.appendChild(document.createTextNode(k)); r.appendChild(c);
   });
 }
