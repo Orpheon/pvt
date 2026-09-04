@@ -78,6 +78,8 @@ label { display: block; font-size: 13px; color: var(--ink-2); margin: 10px 0 4px
 .tile .label { font-size: 12px; color: var(--ink-2); }
 .tile .value { font-size: 28px; font-weight: 600; margin-top: 2px; }
 .tile .value.hero { font-size: 40px; }
+.tile .value { display: flex; align-items: baseline; gap: 4px; }
+.tile .value small { font-size: 16px; font-weight: 500; color: var(--ink-2); }
 .tile .delta { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
 .tile .delta.good { color: var(--good); }
 .tile .delta.bad { color: var(--bad); }
@@ -128,7 +130,7 @@ td .note { display: block; color: var(--muted); font-size: 11px; white-space: no
 #test .counter { font-size: 96px; font-weight: 700; font-variant-numeric: tabular-nums; color: #f5c518; visibility: hidden; letter-spacing: -0.02em; }
 #test .counter.on { visibility: visible; }
 #test .counter.fb { color: #fff; }
-#test .msg { position: absolute; top: 40%; transform: translateY(-50%); font-size: 22px; color: #bbb; text-align: center; padding: 0 32px; line-height: 1.4; }
+#test .msg { white-space: pre-line; position: absolute; top: 40%; transform: translateY(-50%); font-size: 22px; color: #bbb; text-align: center; padding: 0 32px; line-height: 1.4; }
 #test .msg.warn { color: #e66767; font-weight: 600; }
 #test .prog { position: absolute; left: 0; bottom: 0; height: 3px; background: #333; width: 100%; }
 #test .prog i { display: block; height: 100%; background: #555; width: 0; }
@@ -163,6 +165,7 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; padding
     <button data-range="0" aria-pressed="false">All</button>
   </div>
   <div class="readout" id="readout"></div>
+  <div class="legend muted" style="margin:0 0 8px 4px;font-size:12px"><i style="display:inline-block;vertical-align:middle;width:8px;height:8px;border-radius:50%;background:var(--series);opacity:.55"></i> session &nbsp;&nbsp; <i style="display:inline-block;vertical-align:middle;width:14px;height:2px;background:var(--series)"></i> 7-session mean</div>
   <div id="charts"></div>
 
   <h2>Sessions</h2>
@@ -481,7 +484,9 @@ function deltaText(v, ref, higherBetter, dec, unit) {
 function tile(label, value, delta, hero) {
   const t = document.createElement('div'); t.className = 'tile';
   const l = document.createElement('div'); l.className = 'label'; l.textContent = label;
-  const v = document.createElement('div'); v.className = 'value' + (hero ? ' hero' : ''); v.textContent = value;
+  const v = document.createElement('div'); v.className = 'value' + (hero ? ' hero' : '');
+  const um = /^(.*?)(\s*\/s)$/.exec(value);
+  if (um) { v.textContent = um[1]; const sm = document.createElement('small'); sm.textContent = '/s'; v.appendChild(sm); } else v.textContent = value;
   t.append(l, v);
   if (delta) { const d = document.createElement('div'); d.className = 'delta ' + delta.cls; d.textContent = delta.txt; t.appendChild(d); }
   return t;
@@ -493,7 +498,7 @@ function inRange() { if (!range) return sessions; const cut = Date.now() - range
 
 function renderHome() {
   $('ver').textContent = 'v' + VERSION;
-  $('protocolLine').textContent = settings.duration === 180 ? '3 minutes, about 60 taps. Same time each morning, before coffee.' : (settings.duration / 60) + ' minutes. Same time each morning, before coffee.';
+  $('protocolLine').textContent = settings.duration === 180 ? '3 minutes, about 45 taps. Same time each morning, before coffee.' : (settings.duration / 60) + ' minutes. Same time each morning, before coffee.';
   $('durSel').value = settings.duration; $('feedbackSel').value = settings.feedback;
   // nag
   const last = parseInt(localStorage.getItem(LS_EXP) || '0', 10);
@@ -519,9 +524,9 @@ function renderHome() {
 }
 
 const METRICS = [
-  { key: 'speed', title: 'Response speed (1/RT), higher is better', unit: '/s', fmt: r2 },
-  { key: 'lf', title: 'Lapses ≥ 355 ms + false starts, lower is better', unit: '', fmt: r0, get: s => s.lapses + s.falseStarts, int: true },
-  { key: 'slowest10', title: 'Slowest 10 % of taps, ms, lower is better', unit: ' ms', fmt: r0 },
+  { key: 'speed', title: 'Response speed (1/s), higher is better', unit: '/s', fmt: r2 },
+  { key: 'lf', title: 'Lapses + false starts, lower is better', unit: '', fmt: r0, get: s => s.lapses + s.falseStarts, int: true },
+  { key: 'slowest10', title: 'Slowest 10 % of taps (ms), lower is better', unit: ' ms', fmt: r0 },
 ];
 
 function rolling(vals, n) { return vals.map((_, i) => mean(vals.slice(Math.max(0, i - n + 1), i + 1))); }
@@ -562,9 +567,7 @@ function renderCharts(data) {
     const div = document.createElement('div'); div.className = 'chart';
     const title = document.createElement('div'); title.className = 'title';
     const tt = document.createElement('span'); tt.textContent = m.title;
-    const lg = document.createElement('span'); lg.className = 'legend';
-    lg.innerHTML = '<i style="width:8px;height:8px;border-radius:50%;background:var(--series);opacity:.55"></i> session &nbsp; <i style="width:14px;height:2px;background:var(--series)"></i> 7-session mean';
-    title.append(tt, lg); div.appendChild(title);
+    title.append(tt); div.appendChild(title);
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
     div.appendChild(svg); wrap.appendChild(div);
