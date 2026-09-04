@@ -90,7 +90,7 @@ label { display: block; font-size: 13px; color: var(--ink-2); margin: 10px 0 4px
 .filters button[aria-pressed=true] { background: var(--btn); color: var(--btn-ink); border-color: transparent; font-weight: 600; }
 
 /* readout */
-.readout { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; font-size: 12px; color: var(--ink-2); margin: 8px 0 10px; }
+.readout { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; font-size: 12px; color: var(--ink-2); margin: 8px 0 10px; }
 .readout div b { display: block; font-size: 16px; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
 .readout .date { grid-column: 1 / -1; font-size: 13px; color: var(--ink); }
 .readout .date span { color: var(--muted); }
@@ -101,6 +101,8 @@ label { display: block; font-size: 13px; color: var(--ink-2); margin: 10px 0 4px
 .chart .title .legend { color: var(--muted); font-size: 12px; }
 .chart .title .legend i { display: inline-block; vertical-align: middle; }
 .chart svg { display: block; width: 100%; height: 170px; touch-action: pan-y; }
+.chart.primary svg { height: 220px; }
+.chart.primary .title { font-weight: 600; color: var(--ink); }
 .chart svg text { font-family: inherit; font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
 .chart .grid line { stroke: var(--grid); stroke-width: 1; }
 .chart .axis line { stroke: var(--axis); stroke-width: 1; }
@@ -204,6 +206,7 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; padding
     <summary>How to read this</summary>
     <p class="muted">The test measures how quickly you notice and tap a counter that appears at random intervals. Sleep loss slows the average, and above all makes the slow tail slower: more lapses (taps slower than 355 ms) and more false starts. Response speed is 1 divided by reaction time in seconds, so higher is better and it is less distorted by the occasional very slow tap than mean reaction time is.</p>
     <p class="muted">Compare yourself against yourself. Same phone, same posture, same time relative to waking, before caffeine. A 3-minute test underestimates real-world impairment because the vigilance decrement grows with time on task, so treat the line as a trend, not a fitness check. Absolute numbers include your phone's touch latency and will not match published lab values.</p>
+    <p class="muted">The performance score is Basner and Dinges' PVT-B summary: the percentage of responses that were neither lapses nor false starts. Their 2011 comparison of PVT outcome metrics found lapses plus false starts, and mean response speed, to be the most sensitive to sleep loss, so the score chart is the one line to follow and the others explain it.</p>
     <p class="muted">Protocol after Basner, Mollicone &amp; Dinges (2011), PVT-B: 3 min, 1–4 s inter-stimulus interval, lapse ≥ 355 ms, false start = tap before the stimulus or within 100 ms of it.</p>
   </details>
   <p class="muted" style="margin-top:24px">Data is stored only on this device. Export regularly. <span id="ver"></span></p>
@@ -243,7 +246,7 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; padding
 
 <script>
 'use strict';
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 const LS_KEY = 'pvt.sessions.v1';
 const LS_SET = 'pvt.settings.v1';
 const LS_EXP = 'pvt.lastExport';
@@ -296,8 +299,11 @@ function computeMetrics(trials) {
     falseStarts: fs,
     fastest10, slowest10,
     slowest10Speed: mean(sorted.slice(-k).map(r => 1000 / r)),
+    score: valid.length + fs > 0 ? 100 * (1 - (rts.filter(r => r >= LAPSE).length + fs) / (valid.length + fs)) : NaN,
   };
 }
+// Basner & Dinges PVT-B performance score: % of responses that were neither lapses (>= 355 ms) nor false starts.
+function scoreOf(s) { return typeof s.score === 'number' ? s.score : (s.trials + s.falseStarts > 0 ? 100 * (1 - (s.lapses + s.falseStarts) / (s.trials + s.falseStarts)) : NaN); }
 
 // ---------- test runner ----------
 const test = {
@@ -451,10 +457,10 @@ function showResult(s) {
   history.pushState({ screen: 'result' }, '');
   const prev = sessions.filter(x => x.ts < s.ts).slice(-7);
   $('resultHero').innerHTML = '';
-  $('resultHero').appendChild(tile('Response speed', r2(s.speed) + ' /s', prev.length ? deltaText(s.speed, mean(prev.map(p => p.speed)), true, 2, ' /s') : null, true));
-  $('resultHero').appendChild(tile('Lapses + false starts', String(s.lapses + s.falseStarts), prev.length ? deltaText(s.lapses + s.falseStarts, mean(prev.map(p => p.lapses + p.falseStarts)), false, 1, '') : null, false));
+  $('resultHero').appendChild(tile('Performance score', r1(scoreOf(s)) + ' %', prev.length ? deltaText(scoreOf(s), mean(prev.map(scoreOf)), true, 1, ' %') : null, true));
+  $('resultHero').appendChild(tile('Response speed', r2(s.speed) + ' /s', prev.length ? deltaText(s.speed, mean(prev.map(p => p.speed)), true, 2, ' /s') : null, false));
   const kv = $('resultKv'); kv.innerHTML = '';
-  [['Trials', s.trials], ['Mean RT', r0(s.meanRt) + ' ms'], ['Median RT', r0(s.medianRt) + ' ms'], ['Lapses ≥ 355 ms', s.lapses], ['Lapses ≥ 500 ms', s.lapses500],
+  [['Performance score', r1(scoreOf(s)) + ' %'], ['Trials', s.trials], ['Mean RT', r0(s.meanRt) + ' ms'], ['Median RT', r0(s.medianRt) + ' ms'], ['Lapses ≥ 355 ms', s.lapses], ['Lapses ≥ 500 ms', s.lapses500],
    ['False starts', s.falseStarts], ['Fastest 10 %', r0(s.fastest10) + ' ms'], ['Slowest 10 %', r0(s.slowest10) + ' ms'], ['SD of RT', r0(s.sdRt) + ' ms']]
    .forEach(([k, v]) => { const a = document.createElement('span'); a.textContent = k; const b = document.createElement('b'); b.textContent = v; kv.append(a, b); });
   $('sleepH').value = s.sleepHours == null ? '' : s.sleepHours;
@@ -485,8 +491,8 @@ function tile(label, value, delta, hero) {
   const t = document.createElement('div'); t.className = 'tile';
   const l = document.createElement('div'); l.className = 'label'; l.textContent = label;
   const v = document.createElement('div'); v.className = 'value' + (hero ? ' hero' : '');
-  const um = /^(.*?)(\s*\/s)$/.exec(value);
-  if (um) { v.textContent = um[1]; const sm = document.createElement('small'); sm.textContent = '/s'; v.appendChild(sm); } else v.textContent = value;
+  const um = /^(.*?)\s*(\/s|%)$/.exec(value);
+  if (um) { v.textContent = um[1]; const sm = document.createElement('small'); sm.textContent = um[2]; v.appendChild(sm); } else v.textContent = value;
   t.append(l, v);
   if (delta) { const d = document.createElement('div'); d.className = 'delta ' + delta.cls; d.textContent = delta.txt; t.appendChild(d); }
   return t;
@@ -511,8 +517,8 @@ function renderHome() {
   if (sessions.length) {
     const s = sessions[sessions.length - 1];
     const prev = sessions.slice(-8, -1);
-    h.appendChild(tile('Response speed · ' + fmtShort(s.ts), r2(s.speed) + ' /s', prev.length ? deltaText(s.speed, mean(prev.map(p => p.speed)), true, 2, ' /s') : null, true));
-    h.appendChild(tile('Lapses + false starts', String(s.lapses + s.falseStarts), prev.length ? deltaText(s.lapses + s.falseStarts, mean(prev.map(p => p.lapses + p.falseStarts)), false, 1, '') : null, false));
+    h.appendChild(tile('Performance score · ' + fmtShort(s.ts), r1(scoreOf(s)) + ' %', prev.length ? deltaText(scoreOf(s), mean(prev.map(scoreOf)), true, 1, ' %') : null, true));
+    h.appendChild(tile('Response speed', r2(s.speed) + ' /s', prev.length ? deltaText(s.speed, mean(prev.map(p => p.speed)), true, 2, ' /s') : null, false));
   } else {
     const t = document.createElement('div'); t.className = 'muted'; t.style.gridColumn = '1 / -1'; t.textContent = 'No sessions yet.'; h.appendChild(t);
   }
@@ -524,6 +530,7 @@ function renderHome() {
 }
 
 const METRICS = [
+  { key: 'score', title: 'Performance score (%), higher is better', unit: ' %', fmt: r1, get: scoreOf, primary: true, cap: 100 },
   { key: 'speed', title: 'Response speed (1/s), higher is better', unit: '/s', fmt: r2 },
   { key: 'lf', title: 'Lapses + false starts, lower is better', unit: '', fmt: r0, get: s => s.lapses + s.falseStarts, int: true },
   { key: 'slowest10', title: 'Slowest 10 % of taps (ms), lower is better', unit: ' ms', fmt: r0 },
@@ -539,7 +546,7 @@ function renderReadout(data) {
   d.textContent = fmtDate(s.ts) + ' ' + fmtTime(s.ts) + ' ';
   const sp = document.createElement('span'); sp.textContent = (s.sleepHours != null ? s.sleepHours + ' h slept · ' : '') + (s.note || ''); d.appendChild(sp);
   r.appendChild(d);
-  [['Speed', r2(s.speed)], ['Lapses', String(s.lapses)], ['False starts', String(s.falseStarts)], ['Slowest 10 %', r0(s.slowest10)]].forEach(([k, v]) => {
+  [['Score %', r1(scoreOf(s))], ['Speed', r2(s.speed)], ['Lapses', String(s.lapses)], ['False st.', String(s.falseStarts)], ['Slow 10 %', r0(s.slowest10)]].forEach(([k, v]) => {
     const c = document.createElement('div'); const b = document.createElement('b'); b.textContent = v; c.appendChild(b); c.appendChild(document.createTextNode(k)); r.appendChild(c);
   });
 }
@@ -556,15 +563,16 @@ function niceTicks(lo, hi, n, int) {
 
 function renderCharts(data) {
   const wrap = $('charts'); wrap.innerHTML = '';
-  const W = Math.max(280, wrap.clientWidth || 320), H = 170, ml = 34, mr = 12, mt = 10, mb = 22;
+  const W = Math.max(280, wrap.clientWidth || 320), ml = 34, mr = 12, mt = 10, mb = 22;
   const xs = data.map(s => s.ts);
   let x0 = xs.length ? Math.min(...xs) : Date.now() - 7 * 86400000, x1 = xs.length ? Math.max(...xs) : Date.now();
   if (x1 - x0 < 3 * 86400000) { x0 -= 1.5 * 86400000; x1 += 1.5 * 86400000; }
   const X = t => ml + (t - x0) / (x1 - x0) * (W - ml - mr);
   METRICS.forEach(m => {
+    const H = m.primary ? 220 : 170;
     const vals = data.map(s => m.get ? m.get(s) : s[m.key]);
     const roll = rolling(vals, 7);
-    const div = document.createElement('div'); div.className = 'chart';
+    const div = document.createElement('div'); div.className = 'chart' + (m.primary ? ' primary' : '');
     const title = document.createElement('div'); title.className = 'title';
     const tt = document.createElement('span'); tt.textContent = m.title;
     title.append(tt); div.appendChild(title);
@@ -575,6 +583,7 @@ function renderCharts(data) {
     const lo = Math.min(...vals, ...roll), hi = Math.max(...vals, ...roll);
     const pad = (hi - lo) * 0.15 || (m.int ? 1 : Math.abs(lo) * 0.1 || 1);
     const nt = niceTicks(m.int ? Math.max(0, Math.floor(lo - pad)) : lo - pad, hi + pad, 4, m.int);
+    if (m.cap != null && nt.hi > m.cap) { nt.hi = m.cap; nt.ticks = nt.ticks.filter(v => v <= m.cap); }
     const Y = v => mt + (nt.hi - v) / (nt.hi - nt.lo) * (H - mt - mb);
     const grid = el('g', { class: 'grid' }), axis = el('g', { class: 'axis' });
     nt.ticks.forEach(v => {
@@ -616,11 +625,11 @@ function xTicks(x0, x1, pxw) {
 function renderTable(data) {
   const tb = $('table'); tb.innerHTML = '';
   const thead = document.createElement('tr');
-  ['Date', 'Speed', 'Lapses', 'FS', 'Mean', 'Slow 10 %', ''].forEach(h => { const th = document.createElement('th'); th.textContent = h; thead.appendChild(th); });
+  ['Date', 'Score', 'Speed', 'Lapses', 'FS', 'Mean', 'Slow 10 %', ''].forEach(h => { const th = document.createElement('th'); th.textContent = h; thead.appendChild(th); });
   tb.appendChild(thead);
   [...data].reverse().forEach(s => {
     const tr = document.createElement('tr'); tr.dataset.id = s.id; if (s.id === selectedId) tr.classList.add('sel');
-    const cells = [fmtDate(s.ts) + ' ' + fmtTime(s.ts), r2(s.speed), String(s.lapses), String(s.falseStarts), r0(s.meanRt), r0(s.slowest10)];
+    const cells = [fmtDate(s.ts) + ' ' + fmtTime(s.ts), r1(scoreOf(s)), r2(s.speed), String(s.lapses), String(s.falseStarts), r0(s.meanRt), r0(s.slowest10)];
     cells.forEach((c, i) => { const td = document.createElement('td'); td.textContent = c; if (i === 0 && (s.note || s.sleepHours != null)) { const n = document.createElement('span'); n.className = 'note'; n.textContent = (s.sleepHours != null ? s.sleepHours + ' h · ' : '') + (s.note || ''); td.appendChild(n); } tr.appendChild(td); });
     const td = document.createElement('td'); const b = document.createElement('button'); b.className = 'small'; b.textContent = '✎'; b.title = 'Edit'; b.addEventListener('click', e => { e.stopPropagation(); showResult(s); }); td.appendChild(b); tr.appendChild(td);
     tr.addEventListener('click', () => { selectedId = s.id; renderReadout(data); renderCharts(data); highlightRow(); });
@@ -643,8 +652,8 @@ window.addEventListener('resize', () => { if ($('home').classList.contains('acti
 // ---------- export ----------
 function csvEsc(v) { if (v == null) return ''; const s = String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
 function summaryCsv() {
-  const cols = ['id', 'datetime', 'date', 'time', 'duration_s', 'trials', 'mean_rt_ms', 'median_rt_ms', 'sd_rt_ms', 'response_speed', 'lapses_355', 'lapses_500', 'false_starts', 'lapses_plus_fs', 'fastest10_rt_ms', 'slowest10_rt_ms', 'sleep_hours', 'note', 'app_version'];
-  const rows = sessions.map(s => [s.id, isoLocal(s.ts), fmtDate(s.ts), fmtTime(s.ts), s.duration, s.trials, r1(s.meanRt), r1(s.medianRt), r1(s.sdRt), s.speed.toFixed(3), s.lapses, s.lapses500, s.falseStarts, s.lapses + s.falseStarts, r1(s.fastest10), r1(s.slowest10), s.sleepHours == null ? '' : s.sleepHours, s.note || '', s.version || '']);
+  const cols = ['id', 'datetime', 'date', 'time', 'duration_s', 'trials', 'mean_rt_ms', 'median_rt_ms', 'sd_rt_ms', 'response_speed', 'lapses_355', 'lapses_500', 'false_starts', 'lapses_plus_fs', 'performance_score_pct', 'fastest10_rt_ms', 'slowest10_rt_ms', 'sleep_hours', 'note', 'app_version'];
+  const rows = sessions.map(s => [s.id, isoLocal(s.ts), fmtDate(s.ts), fmtTime(s.ts), s.duration, s.trials, r1(s.meanRt), r1(s.medianRt), r1(s.sdRt), s.speed.toFixed(3), s.lapses, s.lapses500, s.falseStarts, s.lapses + s.falseStarts, r1(scoreOf(s)), r1(s.fastest10), r1(s.slowest10), s.sleepHours == null ? '' : s.sleepHours, s.note || '', s.version || '']);
   return [cols, ...rows].map(r => r.map(csvEsc).join(',')).join('\n') + '\n';
 }
 function rawCsv() {
