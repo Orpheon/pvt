@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f9f9f7" media="(prefers-color-scheme: light)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>PVT</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11,11,11,0.10);
+  --series: #2a78d6;
+  --series-soft: rgba(42,120,214,0.10);
+  --good: #006300;
+  --bad: #d03b3b;
+  --btn: #0b0b0b;
+  --btn-ink: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255,255,255,0.10);
+    --series: #3987e5;
+    --series-soft: rgba(57,135,229,0.12);
+    --good: #0ca30c;
+    --bad: #e66767;
+    --btn: #ffffff;
+    --btn-ink: #0b0b0b;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--page); color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 16px;
+  -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+body { min-height: 100vh; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+main { max-width: 640px; margin: 0 auto; padding: 16px 16px 48px; }
+h1 { font-size: 20px; font-weight: 600; margin: 8px 0 16px; letter-spacing: -0.01em; }
+h2 { font-size: 13px; font-weight: 600; color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.06em; margin: 28px 0 10px; }
+p { line-height: 1.45; }
+.muted { color: var(--muted); font-size: 13px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+button { font: inherit; border: 0; border-radius: 10px; padding: 12px 16px; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--border); cursor: pointer; }
+button:active { opacity: 0.8; }
+button.primary { background: var(--btn); color: var(--btn-ink); border-color: transparent; font-weight: 600; font-size: 18px; padding: 18px; width: 100%; }
+button.small { padding: 8px 12px; font-size: 14px; }
+button.danger { color: var(--bad); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.row > button { flex: 1 1 auto; }
+input[type=text], input[type=number], select { font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--ink); width: 100%; }
+label { display: block; font-size: 13px; color: var(--ink-2); margin: 10px 0 4px; }
+
+/* hero */
+.hero { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+.tile .label { font-size: 12px; color: var(--ink-2); }
+.tile .value { font-size: 28px; font-weight: 600; margin-top: 2px; }
+.tile .value.hero { font-size: 40px; }
+.tile .delta { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+.tile .delta.good { color: var(--good); }
+.tile .delta.bad { color: var(--bad); }
+
+/* filters */
+.filters { display: flex; gap: 6px; margin: 12px 0 8px; }
+.filters button { flex: 1; padding: 8px 6px; font-size: 13px; }
+.filters button[aria-pressed=true] { background: var(--btn); color: var(--btn-ink); border-color: transparent; font-weight: 600; }
+
+/* readout */
+.readout { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; font-size: 12px; color: var(--ink-2); margin: 8px 0 10px; }
+.readout div b { display: block; font-size: 16px; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.readout .date { grid-column: 1 / -1; font-size: 13px; color: var(--ink); }
+.readout .date span { color: var(--muted); }
+
+/* charts */
+.chart { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 6px 4px 6px; margin-bottom: 10px; }
+.chart .title { font-size: 13px; color: var(--ink-2); padding: 0 8px 2px 8px; display: flex; justify-content: space-between; }
+.chart .title .legend { color: var(--muted); font-size: 12px; }
+.chart .title .legend i { display: inline-block; vertical-align: middle; }
+.chart svg { display: block; width: 100%; height: 170px; touch-action: pan-y; }
+.chart svg text { font-family: inherit; font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+.chart .grid line { stroke: var(--grid); stroke-width: 1; }
+.chart .axis line { stroke: var(--axis); stroke-width: 1; }
+.chart .roll { fill: none; stroke: var(--series); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .pt { fill: var(--series); stroke: var(--surface); stroke-width: 2; opacity: 0.55; }
+.chart .pt.sel { opacity: 1; r: 5.5; }
+.chart .xhair { stroke: var(--axis); stroke-width: 1; }
+.chart .empty { fill: var(--muted); font-size: 13px; }
+
+/* table */
+table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 8px 6px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th { color: var(--ink-2); font-weight: 500; font-size: 12px; }
+th:first-child, td:first-child { text-align: left; }
+.tablewrap { overflow-x: auto; }
+tr.sel td { background: var(--series-soft); }
+td .note { display: block; color: var(--muted); font-size: 11px; white-space: normal; text-align: left; }
+
+/* screens */
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* test screen */
+#test { position: fixed; inset: 0; background: #000; color: #fff; z-index: 10; touch-action: none; user-select: none; -webkit-user-select: none;
+  display: none; flex-direction: column; align-items: center; justify-content: center; }
+#test.active { display: flex; }
+#test .counter { font-size: 96px; font-weight: 700; font-variant-numeric: tabular-nums; color: #f5c518; visibility: hidden; letter-spacing: -0.02em; }
+#test .counter.on { visibility: visible; }
+#test .counter.fb { color: #fff; }
+#test .msg { position: absolute; top: 40%; transform: translateY(-50%); font-size: 22px; color: #bbb; text-align: center; padding: 0 32px; line-height: 1.4; }
+#test .msg.warn { color: #e66767; font-weight: 600; }
+#test .prog { position: absolute; left: 0; bottom: 0; height: 3px; background: #333; width: 100%; }
+#test .prog i { display: block; height: 100%; background: #555; width: 0; }
+#test .abort { position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 12px; background: transparent; color: #666; border-color: #333; }
+
+.nag { background: var(--series-soft); border-radius: 10px; padding: 10px 12px; font-size: 13px; margin-bottom: 12px; }
+details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; padding: 8px 0; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 14px; }
+.kv b { font-variant-numeric: tabular-nums; }
+#toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--btn); color: var(--btn-ink); padding: 10px 16px;
+  border-radius: 10px; font-size: 14px; display: none; z-index: 20; max-width: 90vw; }
+</style>
+</head>
+<body>
+<main>
+
+<!-- HOME -->
+<section id="home" class="screen active">
+  <h1>PVT</h1>
+  <div id="nag" class="nag" hidden></div>
+  <button class="primary" id="startBtn">Start test</button>
+  <p class="muted" id="protocolLine"></p>
+
+  <h2>Latest</h2>
+  <div class="hero" id="hero"></div>
+
+  <h2>Trends</h2>
+  <div class="filters" id="filters">
+    <button data-range="30" aria-pressed="false">30 d</button>
+    <button data-range="90" aria-pressed="true">90 d</button>
+    <button data-range="365" aria-pressed="false">1 y</button>
+    <button data-range="0" aria-pressed="false">All</button>
+  </div>
+  <div class="readout" id="readout"></div>
+  <div id="charts"></div>
+
+  <h2>Sessions</h2>
+  <div class="tablewrap"><table id="table"></table></div>
+
+  <h2>Data</h2>
+  <div class="card">
+    <p class="muted" id="exportInfo" style="margin-top:0"></p>
+    <div class="row">
+      <button id="expSummary">Export summary CSV</button>
+      <button id="expRaw">Export raw trials CSV</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button id="expJson">Backup JSON</button>
+      <button id="impJson">Restore JSON</button>
+      <input type="file" id="impFile" accept="application/json,.json" hidden>
+    </div>
+  </div>
+
+  <h2>Settings</h2>
+  <div class="card">
+    <label for="durSel">Test duration</label>
+    <select id="durSel">
+      <option value="180">3 min (PVT-B, 1–4 s intervals)</option>
+      <option value="300">5 min (2–10 s intervals)</option>
+      <option value="600">10 min (standard PVT, 2–10 s intervals)</option>
+    </select>
+    <label for="feedbackSel">Show reaction time after each tap</label>
+    <select id="feedbackSel">
+      <option value="1">Yes (standard)</option>
+      <option value="0">No</option>
+    </select>
+  </div>
+
+  <details style="margin-top:20px">
+    <summary>How to read this</summary>
+    <p class="muted">The test measures how quickly you notice and tap a counter that appears at random intervals. Sleep loss slows the average, and above all makes the slow tail slower: more lapses (taps slower than 355 ms) and more false starts. Response speed is 1 divided by reaction time in seconds, so higher is better and it is less distorted by the occasional very slow tap than mean reaction time is.</p>
+    <p class="muted">Compare yourself against yourself. Same phone, same posture, same time relative to waking, before caffeine. A 3-minute test underestimates real-world impairment because the vigilance decrement grows with time on task, so treat the line as a trend, not a fitness check. Absolute numbers include your phone's touch latency and will not match published lab values.</p>
+    <p class="muted">Protocol after Basner, Mollicone &amp; Dinges (2011), PVT-B: 3 min, 1–4 s inter-stimulus interval, lapse ≥ 355 ms, false start = tap before the stimulus or within 100 ms of it.</p>
+  </details>
+  <p class="muted" style="margin-top:24px">Data is stored only on this device. Export regularly. <span id="ver"></span></p>
+</section>
+
+<!-- RESULT -->
+<section id="result" class="screen">
+  <h1>Result</h1>
+  <div class="hero" id="resultHero"></div>
+  <div class="card" style="margin-top:12px">
+    <div class="kv" id="resultKv"></div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <label for="sleepH">Hours slept last night (optional)</label>
+    <input type="number" id="sleepH" step="0.25" min="0" max="16" inputmode="decimal" placeholder="e.g. 6.5">
+    <label for="noteIn">Note (optional)</label>
+    <input type="text" id="noteIn" placeholder="e.g. woke at 6, no coffee yet">
+  </div>
+  <div class="row" style="margin-top:12px">
+    <button class="primary" id="resultDone">Done</button>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <button class="danger small" id="resultDiscard">Discard this session</button>
+  </div>
+</section>
+
+</main>
+
+<!-- TEST OVERLAY -->
+<div id="test">
+  <button class="abort small" id="abortBtn">Abort</button>
+  <div class="msg" id="testMsg"></div>
+  <div class="counter" id="counter">0</div>
+  <div class="prog"><i id="prog"></i></div>
+</div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+const VERSION = '1.0.0';
+const LS_KEY = 'pvt.sessions.v1';
+const LS_SET = 'pvt.settings.v1';
+const LS_EXP = 'pvt.lastExport';
+const LAPSE = 355, LAPSE500 = 500, FS_MIN = 100, TIMEOUT = 10000;
+
+// ---------- storage ----------
+function loadSessions() { try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch (e) { return []; } }
+function saveSessions(s) { localStorage.setItem(LS_KEY, JSON.stringify(s)); }
+function loadSettings() { try { return Object.assign({ duration: 180, feedback: 1 }, JSON.parse(localStorage.getItem(LS_SET) || '{}')); } catch (e) { return { duration: 180, feedback: 1 }; } }
+function saveSettings(s) { localStorage.setItem(LS_SET, JSON.stringify(s)); }
+let sessions = loadSessions();
+let settings = loadSettings();
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+
+// ---------- helpers ----------
+const $ = id => document.getElementById(id);
+function pad(n) { return String(n).padStart(2, '0'); }
+function fmtDate(ms) { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function fmtTime(ms) { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function fmtShort(ms) { const d = new Date(ms); return `${d.getDate()} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]}`; }
+function isoLocal(ms) { const d = new Date(ms); const off = -d.getTimezoneOffset(); const s = off >= 0 ? '+' : '-'; const a = Math.abs(off);
+  return `${fmtDate(ms)}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}${s}${pad(Math.floor(a/60))}:${pad(a%60)}`; }
+function mean(a) { return a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN; }
+function median(a) { if (!a.length) return NaN; const s = [...a].sort((x, y) => x - y); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m-1] + s[m]) / 2; }
+function sd(a) { if (a.length < 2) return NaN; const m = mean(a); return Math.sqrt(a.reduce((s, x) => s + (x - m) ** 2, 0) / (a.length - 1)); }
+function r1(x) { return isFinite(x) ? x.toFixed(1) : '–'; }
+function r2(x) { return isFinite(x) ? x.toFixed(2) : '–'; }
+function r0(x) { return isFinite(x) ? Math.round(x).toString() : '–'; }
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', 2500); }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+// ---------- metrics ----------
+function computeMetrics(trials) {
+  // trials: {onset, rt, type: 'ok'|'lapse'|'fs'|'timeout'}
+  const valid = trials.filter(t => t.type === 'ok' || t.type === 'lapse' || t.type === 'timeout');
+  const rts = valid.map(t => t.rt);
+  const fs = trials.filter(t => t.type === 'fs').length;
+  const sorted = [...rts].sort((a, b) => a - b);
+  const k = Math.max(1, Math.round(sorted.length * 0.1));
+  const fastest10 = mean(sorted.slice(0, k));
+  const slowest10 = mean(sorted.slice(-k));
+  return {
+    trials: valid.length,
+    meanRt: mean(rts),
+    medianRt: median(rts),
+    sdRt: sd(rts),
+    speed: mean(rts.map(r => 1000 / r)),
+    lapses: rts.filter(r => r >= LAPSE).length,
+    lapses500: rts.filter(r => r >= LAPSE500).length,
+    falseStarts: fs,
+    fastest10, slowest10,
+    slowest10Speed: mean(sorted.slice(-k).map(r => 1000 / r)),
+  };
+}
+
+// ---------- test runner ----------
+const test = {
+  active: false, trials: [], start: 0, end: 0, onset: null, timer: null, raf: null, wakeLock: null, fbUntil: 0, armed: false, duration: 180,
+};
+const testEl = $('test'), counterEl = $('counter'), msgEl = $('testMsg'), progEl = $('prog');
+
+function isiRange() { return test.duration <= 180 ? [1000, 4000] : [2000, 10000]; }
+
+async function startTest() {
+  test.duration = settings.duration;
+  test.trials = []; test.onset = null; test.armed = false; test.active = true;
+  testEl.classList.add('active');
+  counterEl.classList.remove('on', 'fb');
+  msgEl.classList.remove('warn');
+  msgEl.textContent = 'Hold the phone comfortably. Tap anywhere as soon as the number appears.\n\nTap to begin.';
+  progEl.style.width = '0';
+  history.pushState({ screen: 'test' }, '');
+  try { if (navigator.wakeLock) test.wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
+  test.state = 'ready';
+}
+
+function beginRun() {
+  test.state = 'running';
+  msgEl.textContent = '';
+  test.start = performance.now();
+  test.end = test.start + test.duration * 1000;
+  scheduleStimulus();
+  progressLoop();
+}
+
+function scheduleStimulus() {
+  clearTimeout(test.timer);
+  const [lo, hi] = isiRange();
+  const isi = lo + Math.random() * (hi - lo);
+  if (performance.now() + isi + 500 > test.end) { test.timer = setTimeout(finishTest, Math.max(0, test.end - performance.now())); return; }
+  test.armed = true; test.onset = null;
+  test.timer = setTimeout(() => {
+    requestAnimationFrame(() => {
+      if (!test.active || test.state !== 'running') return;
+      counterEl.textContent = '0';
+      counterEl.classList.remove('fb');
+      counterEl.classList.add('on');
+      test.onset = performance.now();
+      counterLoop();
+      test.timer = setTimeout(() => { if (test.onset !== null) respond(null, true); }, TIMEOUT);
+    });
+  }, isi);
+}
+
+function counterLoop() {
+  if (test.onset === null) return;
+  counterEl.textContent = String(Math.round(performance.now() - test.onset));
+  test.raf = requestAnimationFrame(counterLoop);
+}
+
+function progressLoop() {
+  if (!test.active || test.state !== 'running') return;
+  const f = Math.min(1, (performance.now() - test.start) / (test.duration * 1000));
+  progEl.style.width = (f * 100).toFixed(2) + '%';
+  if (performance.now() >= test.end && test.onset === null) { finishTest(); return; }
+  setTimeout(progressLoop, 250);
+}
+
+function respond(ev, timeout) {
+  if (!test.active || test.state !== 'running') return;
+  const now = performance.now();
+  let t = now;
+  if (ev && typeof ev.timeStamp === 'number' && ev.timeStamp > 0 && ev.timeStamp <= now && now - ev.timeStamp < 2000) t = ev.timeStamp;
+  if (test.onset === null) {
+    // tap before stimulus: false start
+    if (!test.armed) return;
+    test.trials.push({ onset: Math.round(now - test.start), rt: null, type: 'fs' });
+    showFeedback('too early', true);
+    return;
+  }
+  cancelAnimationFrame(test.raf);
+  clearTimeout(test.timer);
+  const rt = timeout ? TIMEOUT : Math.max(0, t - test.onset);
+  const onset = Math.round(test.onset - test.start);
+  test.onset = null; test.armed = false;
+  if (!timeout && rt < FS_MIN) {
+    test.trials.push({ onset, rt: Math.round(rt), type: 'fs' });
+    showFeedback('too early', true);
+    return;
+  }
+  test.trials.push({ onset, rt: Math.round(rt), type: timeout ? 'timeout' : (rt >= LAPSE ? 'lapse' : 'ok') });
+  if (settings.feedback == 1) {
+    counterEl.textContent = String(Math.round(rt));
+    counterEl.classList.add('fb');
+    test.timer = setTimeout(() => { counterEl.classList.remove('on', 'fb'); scheduleStimulus(); }, 1000);
+  } else {
+    counterEl.classList.remove('on');
+    test.timer = setTimeout(scheduleStimulus, 300);
+  }
+}
+
+function showFeedback(text, warn) {
+  clearTimeout(test.timer);
+  counterEl.classList.remove('on');
+  msgEl.textContent = text; msgEl.classList.toggle('warn', !!warn);
+  test.armed = false;
+  test.timer = setTimeout(() => { msgEl.textContent = ''; msgEl.classList.remove('warn'); scheduleStimulus(); }, 600);
+}
+
+function finishTest() {
+  if (!test.active) return;
+  clearTimeout(test.timer); cancelAnimationFrame(test.raf);
+  const trials = test.trials;
+  closeTest();
+  if (trials.filter(t => t.type !== 'fs').length < 5) { toast('Too few trials, session not saved'); showScreen('home'); return; }
+  const m = computeMetrics(trials);
+  const s = { id: uid(), ts: Date.now(), duration: test.duration, isi: isiRange(), feedback: settings.feedback, version: VERSION, ...m, sleepHours: null, note: '', raw: trials };
+  sessions.push(s); sessions.sort((a, b) => a.ts - b.ts); saveSessions(sessions);
+  showResult(s);
+}
+
+function abortTest() { closeTest(); toast('Test aborted'); showScreen('home'); }
+
+function closeTest() {
+  test.active = false; test.state = 'idle';
+  clearTimeout(test.timer); cancelAnimationFrame(test.raf);
+  testEl.classList.remove('active');
+  if (test.wakeLock) { test.wakeLock.release().catch(() => {}); test.wakeLock = null; }
+}
+
+testEl.addEventListener('pointerdown', ev => {
+  if (ev.target === $('abortBtn')) return;
+  ev.preventDefault();
+  if (test.state === 'ready') { msgEl.textContent = 'Get ready…'; test.state = 'countdown'; setTimeout(beginRun, 1500); return; }
+  respond(ev, false);
+}, { passive: false });
+testEl.addEventListener('contextmenu', e => e.preventDefault());
+$('abortBtn').addEventListener('click', abortTest);
+document.addEventListener('visibilitychange', () => { if (document.hidden && test.active && test.state === 'running') abortTest(); });
+
+// ---------- screens ----------
+let current = null;
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === name));
+  window.scrollTo(0, 0);
+  if (name === 'home') renderHome();
+}
+window.addEventListener('popstate', () => {
+  if (test.active) { closeTest(); toast('Test aborted'); }
+  showScreen('home');
+});
+
+function showResult(s) {
+  current = s;
+  history.pushState({ screen: 'result' }, '');
+  const prev = sessions.filter(x => x.ts < s.ts).slice(-7);
+  $('resultHero').innerHTML = '';
+  $('resultHero').appendChild(tile('Response speed', r2(s.speed) + ' /s', prev.length ? deltaText(s.speed, mean(prev.map(p => p.speed)), true, 2, ' /s') : null, true));
+  $('resultHero').appendChild(tile('Lapses + false starts', String(s.lapses + s.falseStarts), prev.length ? deltaText(s.lapses + s.falseStarts, mean(prev.map(p => p.lapses + p.falseStarts)), false, 1, '') : null, false));
+  const kv = $('resultKv'); kv.innerHTML = '';
+  [['Trials', s.trials], ['Mean RT', r0(s.meanRt) + ' ms'], ['Median RT', r0(s.medianRt) + ' ms'], ['Lapses ≥ 355 ms', s.lapses], ['Lapses ≥ 500 ms', s.lapses500],
+   ['False starts', s.falseStarts], ['Fastest 10 %', r0(s.fastest10) + ' ms'], ['Slowest 10 %', r0(s.slowest10) + ' ms'], ['SD of RT', r0(s.sdRt) + ' ms']]
+   .forEach(([k, v]) => { const a = document.createElement('span'); a.textContent = k; const b = document.createElement('b'); b.textContent = v; kv.append(a, b); });
+  $('sleepH').value = s.sleepHours == null ? '' : s.sleepHours;
+  $('noteIn').value = s.note || '';
+  showScreen('result');
+}
+function commitResultFields() {
+  if (!current) return;
+  const h = parseFloat($('sleepH').value);
+  current.sleepHours = isFinite(h) ? h : null;
+  current.note = $('noteIn').value.trim();
+  saveSessions(sessions);
+}
+$('resultDone').addEventListener('click', () => { commitResultFields(); current = null; history.back(); });
+$('resultDiscard').addEventListener('click', () => {
+  if (!current) return;
+  if (!confirm('Discard this session?')) return;
+  sessions = sessions.filter(x => x.id !== current.id); saveSessions(sessions); current = null; toast('Discarded'); history.back();
+});
+
+function deltaText(v, ref, higherBetter, dec, unit) {
+  const d = v - ref; if (!isFinite(d)) return null;
+  const good = higherBetter ? d > 0 : d < 0;
+  const txt = (d >= 0 ? '+' : '−') + Math.abs(d).toFixed(dec) + unit + ' vs last 7';
+  return { txt, cls: Math.abs(d) < 1e-9 ? '' : (good ? 'good' : 'bad') };
+}
+function tile(label, value, delta, hero) {
+  const t = document.createElement('div'); t.className = 'tile';
+  const l = document.createElement('div'); l.className = 'label'; l.textContent = label;
+  const v = document.createElement('div'); v.className = 'value' + (hero ? ' hero' : ''); v.textContent = value;
+  t.append(l, v);
+  if (delta) { const d = document.createElement('div'); d.className = 'delta ' + delta.cls; d.textContent = delta.txt; t.appendChild(d); }
+  return t;
+}
+
+// ---------- home ----------
+let range = 90, selectedId = null;
+function inRange() { if (!range) return sessions; const cut = Date.now() - range * 86400000; return sessions.filter(s => s.ts >= cut); }
+
+function renderHome() {
+  $('ver').textContent = 'v' + VERSION;
+  $('protocolLine').textContent = settings.duration === 180 ? '3 minutes, about 60 taps. Same time each morning, before coffee.' : (settings.duration / 60) + ' minutes. Same time each morning, before coffee.';
+  $('durSel').value = settings.duration; $('feedbackSel').value = settings.feedback;
+  // nag
+  const last = parseInt(localStorage.getItem(LS_EXP) || '0', 10);
+  const nag = $('nag');
+  if (sessions.length >= 3 && (!last || Date.now() - last > 14 * 86400000)) { nag.hidden = false; nag.textContent = last ? 'It has been more than two weeks since your last export. Data lives only on this phone.' : 'You have not exported your data yet. Data lives only on this phone.'; }
+  else nag.hidden = true;
+  $('exportInfo').textContent = sessions.length + ' session' + (sessions.length === 1 ? '' : 's') + ' stored' + (last ? ', last export ' + fmtDate(last) : '') + '.';
+  // hero
+  const h = $('hero'); h.innerHTML = '';
+  if (sessions.length) {
+    const s = sessions[sessions.length - 1];
+    const prev = sessions.slice(-8, -1);
+    h.appendChild(tile('Response speed · ' + fmtShort(s.ts), r2(s.speed) + ' /s', prev.length ? deltaText(s.speed, mean(prev.map(p => p.speed)), true, 2, ' /s') : null, true));
+    h.appendChild(tile('Lapses + false starts', String(s.lapses + s.falseStarts), prev.length ? deltaText(s.lapses + s.falseStarts, mean(prev.map(p => p.lapses + p.falseStarts)), false, 1, '') : null, false));
+  } else {
+    const t = document.createElement('div'); t.className = 'muted'; t.style.gridColumn = '1 / -1'; t.textContent = 'No sessions yet.'; h.appendChild(t);
+  }
+  const data = inRange();
+  if (!data.some(s => s.id === selectedId)) selectedId = data.length ? data[data.length - 1].id : null;
+  renderReadout(data);
+  renderCharts(data);
+  renderTable(data);
+}
+
+const METRICS = [
+  { key: 'speed', title: 'Response speed (1/RT), higher is better', unit: '/s', fmt: r2 },
+  { key: 'lf', title: 'Lapses ≥ 355 ms + false starts, lower is better', unit: '', fmt: r0, get: s => s.lapses + s.falseStarts, int: true },
+  { key: 'slowest10', title: 'Slowest 10 % of taps, ms, lower is better', unit: ' ms', fmt: r0 },
+];
+
+function rolling(vals, n) { return vals.map((_, i) => mean(vals.slice(Math.max(0, i - n + 1), i + 1))); }
+
+function renderReadout(data) {
+  const r = $('readout'); r.innerHTML = '';
+  const s = data.find(x => x.id === selectedId);
+  if (!s) return;
+  const d = document.createElement('div'); d.className = 'date';
+  d.textContent = fmtDate(s.ts) + ' ' + fmtTime(s.ts) + ' ';
+  const sp = document.createElement('span'); sp.textContent = (s.sleepHours != null ? s.sleepHours + ' h slept · ' : '') + (s.note || ''); d.appendChild(sp);
+  r.appendChild(d);
+  [['Speed', r2(s.speed)], ['Lapses', String(s.lapses)], ['False starts', String(s.falseStarts)], ['Slowest 10 %', r0(s.slowest10)]].forEach(([k, v]) => {
+    const c = document.createElement('div'); const b = document.createElement('b'); b.textContent = v; c.appendChild(b); c.appendChild(document.createTextNode(k)); r.appendChild(c);
+  });
+}
+
+function niceTicks(lo, hi, n, int) {
+  if (!(hi > lo)) { hi = lo + 1; }
+  const span = hi - lo; const raw = span / n; const p = Math.pow(10, Math.floor(Math.log10(raw)));
+  let step = [1, 2, 2.5, 5, 10].map(m => m * p).find(s => s >= raw) || raw;
+  if (int && step < 1) step = 1;
+  const start = Math.floor(lo / step) * step, end = Math.ceil(hi / step) * step;
+  const ticks = []; for (let v = start; v <= end + 1e-9; v += step) ticks.push(+v.toFixed(6));
+  return { ticks, lo: start, hi: end };
+}
+
+function renderCharts(data) {
+  const wrap = $('charts'); wrap.innerHTML = '';
+  const W = Math.max(280, wrap.clientWidth || 320), H = 170, ml = 34, mr = 12, mt = 10, mb = 22;
+  const xs = data.map(s => s.ts);
+  let x0 = xs.length ? Math.min(...xs) : Date.now() - 7 * 86400000, x1 = xs.length ? Math.max(...xs) : Date.now();
+  if (x1 - x0 < 3 * 86400000) { x0 -= 1.5 * 86400000; x1 += 1.5 * 86400000; }
+  const X = t => ml + (t - x0) / (x1 - x0) * (W - ml - mr);
+  METRICS.forEach(m => {
+    const vals = data.map(s => m.get ? m.get(s) : s[m.key]);
+    const roll = rolling(vals, 7);
+    const div = document.createElement('div'); div.className = 'chart';
+    const title = document.createElement('div'); title.className = 'title';
+    const tt = document.createElement('span'); tt.textContent = m.title;
+    const lg = document.createElement('span'); lg.className = 'legend';
+    lg.innerHTML = '<i style="width:8px;height:8px;border-radius:50%;background:var(--series);opacity:.55"></i> session &nbsp; <i style="width:14px;height:2px;background:var(--series)"></i> 7-session mean';
+    title.append(tt, lg); div.appendChild(title);
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    div.appendChild(svg); wrap.appendChild(div);
+    if (!vals.length) { const t = el('text', { x: W / 2, y: H / 2, 'text-anchor': 'middle', class: 'empty' }); t.textContent = 'No sessions in this range'; svg.appendChild(t); return; }
+    const lo = Math.min(...vals, ...roll), hi = Math.max(...vals, ...roll);
+    const pad = (hi - lo) * 0.15 || (m.int ? 1 : Math.abs(lo) * 0.1 || 1);
+    const nt = niceTicks(m.int ? Math.max(0, Math.floor(lo - pad)) : lo - pad, hi + pad, 4, m.int);
+    const Y = v => mt + (nt.hi - v) / (nt.hi - nt.lo) * (H - mt - mb);
+    const grid = el('g', { class: 'grid' }), axis = el('g', { class: 'axis' });
+    nt.ticks.forEach(v => {
+      grid.appendChild(el('line', { x1: ml, x2: W - mr, y1: Y(v), y2: Y(v) }));
+      const t = el('text', { x: ml - 6, y: Y(v) + 4, 'text-anchor': 'end' }); t.textContent = m.int ? String(v) : (Math.abs(nt.hi - nt.lo) < 5 ? v.toFixed(1) : String(Math.round(v))); grid.appendChild(t);
+    });
+    svg.appendChild(grid);
+    axis.appendChild(el('line', { x1: ml, x2: W - mr, y1: H - mb, y2: H - mb }));
+    svg.appendChild(axis);
+    // x ticks
+    xTicks(x0, x1, W - ml - mr).forEach(t => { const tx = el('text', { x: X(t.t), y: H - 6, 'text-anchor': t.anchor || 'middle' }); tx.textContent = t.label; svg.appendChild(tx); });
+    // rolling line
+    if (data.length > 1) svg.appendChild(el('path', { class: 'roll', d: data.map((s, i) => (i ? 'L' : 'M') + X(s.ts).toFixed(1) + ' ' + Y(roll[i]).toFixed(1)).join(' ') }));
+    // crosshair
+    const xh = el('line', { class: 'xhair', y1: mt, y2: H - mb, x1: -10, x2: -10 }); svg.appendChild(xh);
+    // points
+    const pts = data.map((s, i) => { const c = el('circle', { class: 'pt' + (s.id === selectedId ? ' sel' : ''), cx: X(s.ts), cy: Y(vals[i]), r: 4 }); svg.appendChild(c); return c; });
+    const si = data.findIndex(s => s.id === selectedId); if (si >= 0) { xh.setAttribute('x1', X(data[si].ts)); xh.setAttribute('x2', X(data[si].ts)); }
+    // hit layer: nearest x
+    const pick = ev => {
+      const rect = svg.getBoundingClientRect(); const px = (ev.clientX - rect.left) / rect.width * W;
+      let best = -1, bd = Infinity; data.forEach((s, i) => { const d = Math.abs(X(s.ts) - px); if (d < bd) { bd = d; best = i; } });
+      if (best >= 0 && data[best].id !== selectedId) { selectedId = data[best].id; renderReadout(data); renderCharts(data); highlightRow(); }
+    };
+    svg.addEventListener('pointerdown', pick);
+    svg.addEventListener('pointermove', ev => { if (ev.pointerType === 'mouse' && ev.buttons === 0) pick(ev); else if (ev.buttons) pick(ev); });
+  });
+}
+function el(tag, attrs) { const e = document.createElementNS('http://www.w3.org/2000/svg', tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
+function xTicks(x0, x1, pxw) {
+  const days = (x1 - x0) / 86400000; const n = Math.max(2, Math.floor(pxw / 70));
+  const out = []; const stepDays = days <= n ? 1 : Math.ceil(days / n);
+  const d = new Date(x0); d.setHours(0, 0, 0, 0);
+  if (stepDays >= 28) { d.setDate(1); for (let i = 0; i < 200; i++) { if (d.getTime() > x1) break; if (d.getTime() >= x0) out.push({ t: d.getTime(), label: fmtShort(d.getTime()) }); d.setMonth(d.getMonth() + Math.max(1, Math.round(stepDays / 30))); } return out; }
+  for (let t = d.getTime(); t <= x1; t += stepDays * 86400000) if (t >= x0) out.push({ t, label: fmtShort(t) });
+  return out;
+}
+
+function renderTable(data) {
+  const tb = $('table'); tb.innerHTML = '';
+  const thead = document.createElement('tr');
+  ['Date', 'Speed', 'Lapses', 'FS', 'Mean', 'Slow 10 %', ''].forEach(h => { const th = document.createElement('th'); th.textContent = h; thead.appendChild(th); });
+  tb.appendChild(thead);
+  [...data].reverse().forEach(s => {
+    const tr = document.createElement('tr'); tr.dataset.id = s.id; if (s.id === selectedId) tr.classList.add('sel');
+    const cells = [fmtDate(s.ts) + ' ' + fmtTime(s.ts), r2(s.speed), String(s.lapses), String(s.falseStarts), r0(s.meanRt), r0(s.slowest10)];
+    cells.forEach((c, i) => { const td = document.createElement('td'); td.textContent = c; if (i === 0 && (s.note || s.sleepHours != null)) { const n = document.createElement('span'); n.className = 'note'; n.textContent = (s.sleepHours != null ? s.sleepHours + ' h · ' : '') + (s.note || ''); td.appendChild(n); } tr.appendChild(td); });
+    const td = document.createElement('td'); const b = document.createElement('button'); b.className = 'small'; b.textContent = '✎'; b.title = 'Edit'; b.addEventListener('click', e => { e.stopPropagation(); showResult(s); }); td.appendChild(b); tr.appendChild(td);
+    tr.addEventListener('click', () => { selectedId = s.id; renderReadout(data); renderCharts(data); highlightRow(); });
+    tb.appendChild(tr);
+  });
+}
+function highlightRow() { document.querySelectorAll('#table tr').forEach(tr => tr.classList.toggle('sel', tr.dataset.id === selectedId)); }
+
+$('filters').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  range = parseInt(b.dataset.range, 10);
+  document.querySelectorAll('#filters button').forEach(x => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+  renderHome();
+});
+$('startBtn').addEventListener('click', startTest);
+$('durSel').addEventListener('change', e => { settings.duration = parseInt(e.target.value, 10); saveSettings(settings); renderHome(); });
+$('feedbackSel').addEventListener('change', e => { settings.feedback = parseInt(e.target.value, 10); saveSettings(settings); });
+window.addEventListener('resize', () => { if ($('home').classList.contains('active')) renderCharts(inRange()); });
+
+// ---------- export ----------
+function csvEsc(v) { if (v == null) return ''; const s = String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+function summaryCsv() {
+  const cols = ['id', 'datetime', 'date', 'time', 'duration_s', 'trials', 'mean_rt_ms', 'median_rt_ms', 'sd_rt_ms', 'response_speed', 'lapses_355', 'lapses_500', 'false_starts', 'lapses_plus_fs', 'fastest10_rt_ms', 'slowest10_rt_ms', 'sleep_hours', 'note', 'app_version'];
+  const rows = sessions.map(s => [s.id, isoLocal(s.ts), fmtDate(s.ts), fmtTime(s.ts), s.duration, s.trials, r1(s.meanRt), r1(s.medianRt), r1(s.sdRt), s.speed.toFixed(3), s.lapses, s.lapses500, s.falseStarts, s.lapses + s.falseStarts, r1(s.fastest10), r1(s.slowest10), s.sleepHours == null ? '' : s.sleepHours, s.note || '', s.version || '']);
+  return [cols, ...rows].map(r => r.map(csvEsc).join(',')).join('\n') + '\n';
+}
+function rawCsv() {
+  const cols = ['session_id', 'datetime', 'trial', 'onset_ms', 'rt_ms', 'type'];
+  const rows = []; sessions.forEach(s => (s.raw || []).forEach((t, i) => rows.push([s.id, isoLocal(s.ts), i + 1, t.onset, t.rt == null ? '' : t.rt, t.type])));
+  return [cols, ...rows].map(r => r.map(csvEsc).join(',')).join('\n') + '\n';
+}
+async function exportFile(name, content, type) {
+  const file = new File([content], name, { type });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); markExported(); return; }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  const url = URL.createObjectURL(file); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000); markExported(); toast('Saved to Downloads');
+}
+function markExported() { localStorage.setItem(LS_EXP, String(Date.now())); renderHome(); }
+function stamp() { return fmtDate(Date.now()); }
+$('expSummary').addEventListener('click', () => exportFile('pvt-summary-' + stamp() + '.csv', summaryCsv(), 'text/csv'));
+$('expRaw').addEventListener('click', () => exportFile('pvt-trials-' + stamp() + '.csv', rawCsv(), 'text/csv'));
+$('expJson').addEventListener('click', () => exportFile('pvt-backup-' + stamp() + '.json', JSON.stringify({ app: 'pvt', version: VERSION, exported: isoLocal(Date.now()), settings, sessions }, null, 1), 'application/json'));
+$('impJson').addEventListener('click', () => $('impFile').click());
+$('impFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const j = JSON.parse(await f.text()); const inc = Array.isArray(j) ? j : j.sessions;
+    if (!Array.isArray(inc)) throw new Error('no sessions');
+    const have = new Set(sessions.map(s => s.id)); let n = 0;
+    inc.forEach(s => { if (s && s.id && typeof s.ts === 'number' && !have.has(s.id)) { sessions.push(s); have.add(s.id); n++; } });
+    sessions.sort((a, b) => a.ts - b.ts); saveSessions(sessions); toast('Imported ' + n + ' new session' + (n === 1 ? '' : 's')); renderHome();
+  } catch (err) { toast('Could not read backup'); }
+  e.target.value = '';
+});
+
+// ---------- boot ----------
+renderHome();
+if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {})); }
+</script>
+</body>
+</html>
