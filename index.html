@@ -246,7 +246,7 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; padding
 
 <script>
 'use strict';
-const VERSION = '1.2.0';
+const VERSION = '1.2.1';
 const LS_KEY = 'pvt.sessions.v1';
 const LS_SET = 'pvt.settings.v1';
 const LS_EXP = 'pvt.lastExport';
@@ -457,8 +457,8 @@ function showResult(s) {
   history.pushState({ screen: 'result' }, '');
   const prev = sessions.filter(x => x.ts < s.ts).slice(-7);
   $('resultHero').innerHTML = '';
-  $('resultHero').appendChild(tile('Response speed', r2(s.speed) + ' /s', prev.length ? deltaText(s.speed, mean(prev.map(p => p.speed)), true, 2, ' /s') : null, true));
-  $('resultHero').appendChild(tile('Performance score', r1(scoreOf(s)) + ' %', prev.length ? deltaText(scoreOf(s), mean(prev.map(scoreOf)), true, 1, ' %') : null, false));
+  $('resultHero').appendChild(tile('Response speed', r2(s.speed) + ' /s', prev.length ? deltaText(s.speed, mean(prev.map(p => p.speed)), true, 2, ' /s', prev.length, 0.1) : null, true));
+  $('resultHero').appendChild(tile('Performance score', r1(scoreOf(s)) + ' %', prev.length ? deltaText(scoreOf(s), mean(prev.map(scoreOf)), true, 1, ' pts', prev.length, 2) : null, false));
   const kv = $('resultKv'); kv.innerHTML = '';
   [['Response speed', r2(s.speed) + ' /s'], ['Performance score', r1(scoreOf(s)) + ' %'], ['Trials', s.trials], ['Mean RT', r0(s.meanRt) + ' ms'], ['Median RT', r0(s.medianRt) + ' ms'], ['Lapses ≥ 355 ms', s.lapses], ['Lapses ≥ 500 ms', s.lapses500],
    ['False starts', s.falseStarts], ['Fastest 10 %', r0(s.fastest10) + ' ms'], ['Slowest 10 %', r0(s.slowest10) + ' ms'], ['SD of RT', r0(s.sdRt) + ' ms']]
@@ -481,11 +481,14 @@ $('resultDiscard').addEventListener('click', () => {
   sessions = sessions.filter(x => x.id !== current.id); saveSessions(sessions); current = null; toast('Discarded'); history.back();
 });
 
-function deltaText(v, ref, higherBetter, dec, unit) {
+// Colour only changes at or above the metric's meaningful resolution (neutralBelow); smaller ones are shown but grey.
+function deltaText(v, ref, higherBetter, dec, unit, n, neutralBelow) {
   const d = v - ref; if (!isFinite(d)) return null;
+  const shown = +Math.abs(d).toFixed(dec);
   const good = higherBetter ? d > 0 : d < 0;
-  const txt = (d >= 0 ? '+' : '−') + Math.abs(d).toFixed(dec) + unit + ' vs last 7';
-  return { txt, cls: Math.abs(d) < 1e-9 ? '' : (good ? 'good' : 'bad') };
+  const vs = n === 1 ? ' vs previous' : ' vs last ' + n;
+  const txt = (shown === 0 ? '±' : (d > 0 ? '+' : '−')) + shown.toFixed(dec) + unit + vs;
+  return { txt, cls: shown === 0 || Math.abs(d) < (neutralBelow || 0) ? '' : (good ? 'good' : 'bad') };
 }
 function tile(label, value, delta, hero) {
   const t = document.createElement('div'); t.className = 'tile';
@@ -517,8 +520,8 @@ function renderHome() {
   if (sessions.length) {
     const s = sessions[sessions.length - 1];
     const prev = sessions.slice(-8, -1);
-    h.appendChild(tile('Response speed · ' + fmtShort(s.ts), r2(s.speed) + ' /s', prev.length ? deltaText(s.speed, mean(prev.map(p => p.speed)), true, 2, ' /s') : null, true));
-    h.appendChild(tile('Performance score', r1(scoreOf(s)) + ' %', prev.length ? deltaText(scoreOf(s), mean(prev.map(scoreOf)), true, 1, ' %') : null, false));
+    h.appendChild(tile('Response speed · ' + fmtShort(s.ts), r2(s.speed) + ' /s', prev.length ? deltaText(s.speed, mean(prev.map(p => p.speed)), true, 2, ' /s', prev.length, 0.1) : null, true));
+    h.appendChild(tile('Performance score', r1(scoreOf(s)) + ' %', prev.length ? deltaText(scoreOf(s), mean(prev.map(scoreOf)), true, 1, ' pts', prev.length, 2) : null, false));
   } else {
     const t = document.createElement('div'); t.className = 'muted'; t.style.gridColumn = '1 / -1'; t.textContent = 'No sessions yet.'; h.appendChild(t);
   }
@@ -530,10 +533,11 @@ function renderHome() {
 }
 
 const METRICS = [
-  { key: 'speed', title: 'Response speed (1/s), higher is better', unit: '/s', fmt: r2, primary: true },
-  { key: 'score', title: 'Performance score (%), higher is better', unit: ' %', fmt: r1, get: scoreOf, cap: 100 },
-  { key: 'lf', title: 'Lapses + false starts, lower is better', unit: '', fmt: r0, get: s => s.lapses + s.falseStarts, int: true },
-  { key: 'slowest10', title: 'Slowest 10 % of taps (ms), lower is better', unit: ' ms', fmt: r0 },
+  // minSpan keeps the y-axis from zooming into noise: sessions that differ by less than this stay visually flat.
+  { key: 'speed', title: 'Response speed (1/s), higher is better', unit: '/s', fmt: r2, primary: true, minSpan: 0.6 },
+  { key: 'score', title: 'Performance score (%), higher is better', unit: ' %', fmt: r1, get: scoreOf, cap: 100, minSpan: 10 },
+  { key: 'lf', title: 'Lapses + false starts, lower is better', unit: '', fmt: r0, get: s => s.lapses + s.falseStarts, int: true, minSpan: 4 },
+  { key: 'slowest10', title: 'Slowest 10 % of taps (ms), lower is better', unit: ' ms', fmt: r0, minSpan: 120 },
 ];
 
 function rolling(vals, n) { return vals.map((_, i) => mean(vals.slice(Math.max(0, i - n + 1), i + 1))); }
@@ -554,11 +558,12 @@ function renderReadout(data) {
 function niceTicks(lo, hi, n, int) {
   if (!(hi > lo)) { hi = lo + 1; }
   const span = hi - lo; const raw = span / n; const p = Math.pow(10, Math.floor(Math.log10(raw)));
-  let step = [1, 2, 2.5, 5, 10].map(m => m * p).find(s => s >= raw) || raw;
+  let step = [1, 2, 2.5, 5, 10].map(m => +(m * p).toPrecision(8)).find(s => s >= raw) || raw;
   if (int && step < 1) step = 1;
-  const start = Math.floor(lo / step) * step, end = Math.ceil(hi / step) * step;
-  const ticks = []; for (let v = start; v <= end + 1e-9; v += step) ticks.push(+v.toFixed(6));
-  return { ticks, lo: start, hi: end };
+  const dec = int ? 0 : Math.max(0, (String(step).split('.')[1] || '').length);
+  const start = +(Math.floor(lo / step) * step).toFixed(dec), end = +(Math.ceil(hi / step) * step).toFixed(dec);
+  const ticks = []; for (let i = 0; start + i * step <= end + step * 1e-6; i++) ticks.push(+(start + i * step).toFixed(dec));
+  return { ticks, lo: start, hi: end, step, dec };
 }
 
 function renderCharts(data) {
@@ -580,15 +585,16 @@ function renderCharts(data) {
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
     div.appendChild(svg); wrap.appendChild(div);
     if (!vals.length) { const t = el('text', { x: W / 2, y: H / 2, 'text-anchor': 'middle', class: 'empty' }); t.textContent = 'No sessions in this range'; svg.appendChild(t); return; }
-    const lo = Math.min(...vals, ...roll), hi = Math.max(...vals, ...roll);
-    const pad = (hi - lo) * 0.15 || (m.int ? 1 : Math.abs(lo) * 0.1 || 1);
+    let lo = Math.min(...vals, ...roll), hi = Math.max(...vals, ...roll);
+    if (m.minSpan && hi - lo < m.minSpan) { const mid = (lo + hi) / 2; lo = mid - m.minSpan / 2; hi = mid + m.minSpan / 2; if (m.cap != null && hi > m.cap) { lo -= hi - m.cap; hi = m.cap; } if (m.int && lo < 0) { hi -= lo; lo = 0; } }
+    const pad = (hi - lo) * 0.1;
     const nt = niceTicks(m.int ? Math.max(0, Math.floor(lo - pad)) : lo - pad, hi + pad, 4, m.int);
     if (m.cap != null && nt.hi > m.cap) { nt.hi = m.cap; nt.ticks = nt.ticks.filter(v => v <= m.cap); }
     const Y = v => mt + (nt.hi - v) / (nt.hi - nt.lo) * (H - mt - mb);
     const grid = el('g', { class: 'grid' }), axis = el('g', { class: 'axis' });
     nt.ticks.forEach(v => {
       grid.appendChild(el('line', { x1: ml, x2: W - mr, y1: Y(v), y2: Y(v) }));
-      const t = el('text', { x: ml - 6, y: Y(v) + 4, 'text-anchor': 'end' }); t.textContent = m.int ? String(v) : (Math.abs(nt.hi - nt.lo) < 5 ? v.toFixed(1) : String(Math.round(v))); grid.appendChild(t);
+      const t = el('text', { x: ml - 6, y: Y(v) + 4, 'text-anchor': 'end' }); t.textContent = v.toFixed(nt.dec); grid.appendChild(t);
     });
     svg.appendChild(grid);
     axis.appendChild(el('line', { x1: ml, x2: W - mr, y1: H - mb, y2: H - mb }));

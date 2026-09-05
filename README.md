@@ -18,3 +18,7 @@ Single static page, installable as a PWA, data stays on the device, CSV export v
 ## Data
 
 Sessions are stored in the browser's localStorage for this origin. Export summary CSV, raw trial CSV, or a JSON backup from the Data section. Restore JSON merges by session id.
+
+## Tests
+
+`node test/run.mjs [outdir]` drives headless Chrome (needs `google-chrome` on PATH, or set `CHROME`): runs a shortened test with simulated taps, seeds edge-case histories (one day of sessions with sub-percent differences, identical sessions, a month of near-identical values, a single session), asserts on axis labels, deltas, the score formula and the CSV, and writes screenshots to the output directory.
