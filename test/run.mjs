@@ -20,11 +20,15 @@ const server = createServer(async (req, res) => {
 await new Promise(r => server.listen(0, '127.0.0.1', r));
 const URL_ = `http://127.0.0.1:${server.address().port}/index.html`;
 const profile = join(OUT, 'chrome-profile');
-const chrome = spawn(process.env.CHROME || 'google-chrome', ['--headless=new', '--no-sandbox', '--disable-gpu', '--remote-debugging-port=9334',
+const PORT = 9400 + Math.floor(Math.random() * 500);
+import { rmSync } from 'node:fs';
+for (const f of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) { try { rmSync(join(profile, f), { force: true }); } catch {} }
+const chrome = spawn(process.env.CHROME || 'google-chrome', ['--headless=new', '--no-sandbox', '--disable-gpu', `--remote-debugging-port=${PORT}`,
   `--user-data-dir=${profile}`, '--window-size=412,915', '--force-dark-mode', 'about:blank'], { stdio: 'ignore' });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let ws, id = 0; const pending = new Map(); const errors = [];
-for (let i = 0; i < 40; i++) { try { const l = await (await fetch('http://127.0.0.1:9334/json')).json(); ws = new WebSocket(l[0].webSocketDebuggerUrl); break; } catch { await sleep(250); } }
+for (let i = 0; i < 120; i++) { try { const l = await (await fetch(`http://127.0.0.1:${PORT}/json`)).json(); ws = new WebSocket(l[0].webSocketDebuggerUrl); break; } catch { await sleep(250); } }
+if (!ws) { chrome.kill(); throw new Error('could not connect to Chrome on port ' + PORT); }
 await new Promise(r => ws.onopen = r);
 ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); }
   if (m.method === 'Runtime.exceptionThrown') errors.push(m.params.exceptionDetails.exception?.description || 'exception');
@@ -44,11 +48,11 @@ await js(`localStorage.clear(); location.reload()`); await sleep(300); await loa
 
 // ---------- 1. functional run ----------
 console.log('1. shortened test run');
-await js(`settings.duration = 20; startTest(); 'ok'`); await sleep(200);
+await js(`settings.duration = 30; startTest(); 'ok'`); await sleep(200);
 const tap = () => js(`testEl.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true, pointerType:'touch', isPrimary:true, clientX:200, clientY:500})); 1`);
 await tap(); await sleep(1700);
 let fsDone = false; const t0 = Date.now();
-while (Date.now() - t0 < 26000) {
+while (Date.now() - t0 < 40000) {
   const s = JSON.parse(await js(`JSON.stringify({state: test.state, onset: test.onset !== null, armed: test.armed})`));
   if (s.state !== 'running') break;
   if (s.onset) { await sleep(150 + Math.random() * 300); await tap(); } else if (s.armed && !fsDone) { fsDone = true; await tap(); }
@@ -122,9 +126,79 @@ check(r.deltas.length === 0, 'no delta with a single session');
 check(r.npts.every(n => n === 1), 'one point per chart');
 await shot('5-single');
 
+// ---------- 6. gaps: positioned by time, trend line broken across long gaps ----------
+console.log('6. missing days: x by time, trend broken across a long gap');
+await seed([
+  { ts: now - 40 * D, n: 45, rt: 260, lapses: 0, fs: 0 }, { ts: now - 39 * D, n: 45, rt: 262, lapses: 0, fs: 0 },
+  { ts: now - 20 * D, n: 45, rt: 265, lapses: 1, fs: 0 },
+  { ts: now - 3 * D, n: 45, rt: 258, lapses: 0, fs: 0 }, { ts: now - 2 * D, n: 45, rt: 259, lapses: 0, fs: 1 }, { ts: now - 1 * D, n: 45, rt: 261, lapses: 0, fs: 0 },
+]); await sleep(300); await load();
+{
+  const cx = JSON.parse(await js(`JSON.stringify([...document.querySelectorAll('#charts .chart:first-child .pt')].map(c => +c.getAttribute('cx')))`));
+  const ratio = (cx[2] - cx[0]) / (cx[5] - cx[0]);
+  check(Math.abs(ratio - 20 / 39) < 0.01, `x position proportional to time (day 20 of 39 -> ${ratio.toFixed(3)})`);
+  check(cx[1] - cx[0] > 0 && (cx[1] - cx[0]) < (cx[2] - cx[1]) / 5, 'adjacent days sit close, the 19-day gap is wide');
+  const d = await js(`document.querySelector('#charts .chart:first-child .roll').getAttribute('d')`);
+  check((d.match(/M/g) || []).length === 3, `trend line broken into 3 segments across gaps > 14 d (${(d.match(/M/g) || []).length})`);
+  const roll = JSON.parse(await js(`JSON.stringify(rollingByTime(sessions, sessions.map(s => s.speed)))`));
+  const sp = JSON.parse(await js(`JSON.stringify(sessions.map(s => s.speed))`));
+  check(Math.abs(roll[2] - sp[2]) < 1e-9, 'isolated session\'s 7-day mean is itself');
+  check(Math.abs(roll[5] - (sp[3] + sp[4] + sp[5]) / 3) < 1e-9, 'latest 7-day mean covers only the last three days');
+}
+await shot('6-gaps');
+
+// ---------- 7. pause during a run ----------
+console.log('7. pause and resume');
+await js(`settings.duration = 30; startTest(); 'ok'`); await sleep(200);
+await tap(); await sleep(1700);
+check(await js(`test.state`) === 'running' && !(await js(`$('pauseBtn').hidden`)), 'pause button visible while running');
+await sleep(600);
+await js(`$('pauseBtn').click(); 1`); await sleep(100);
+check(await js(`test.state`) === 'paused', 'state paused');
+const before = await js(`test.trials.length`);
+await tap(); await sleep(200);                      // taps while paused must not count
+check(await js(`test.trials.length`) === before, 'tap while paused records nothing');
+await shot('7-paused', 915);
+const endBefore = await js(`test.end`);
+await sleep(1500);
+await js(`$('pauseBtn').click(); 1`); await sleep(100);
+check(await js(`test.state`) === 'running', 'resumed');
+check((await js(`test.end`)) - endBefore >= 1400, 'clock extended by the paused interval');
+{
+  const t1 = Date.now();
+  while (Date.now() - t1 < 40000) {
+    const st = JSON.parse(await js(`JSON.stringify({state: test.state, onset: test.onset !== null})`));
+    if (st.state !== 'running') break;
+    if (st.onset) { await sleep(150 + Math.random() * 200); await tap(); }
+    await sleep(40);
+  }
+}
+await sleep(400);
+const last = JSON.parse(await js(`JSON.stringify(sessions[sessions.length - 1])`));
+check(last.pauses === 1 && last.trials >= 2, `session saved with pauses=${last.pauses}, trials=${last.trials}`);
+check(await js(`$('resultWhen').textContent`).then(t => /paused 1×/.test(t)), 'result screen notes the pause');
+await js(`$('resultDone').click(); 1`); await sleep(300);
+
+// ---------- 8. edit and delete a past session ----------
+console.log('8. edit tags/note on a past session, then delete');
+await js(`showResult(sessions[0], true); 1`); await sleep(200);
+check(await js(`$('resultTitle').textContent`) === 'Edit session', 'edit screen title');
+await js(`[...document.querySelectorAll('#tagChips button')].find(b => b.textContent === 'caffeine before').click(); $('tagIn').value = 'Dentist'; $('tagAdd').click(); $('noteIn').value = 'edited later'; $('sleepH').value = '5.5'; $('resultDone').click(); 1`);
+await sleep(400); await load();
+const edited = JSON.parse(await js(`JSON.stringify(sessions[0])`));
+check(edited.note === 'edited later' && edited.sleepHours === 5.5, 'note and hours persisted after reload');
+check(JSON.stringify(edited.tags) === JSON.stringify(['caffeine before', 'dentist']), `tags persisted: ${JSON.stringify(edited.tags)}`);
+check(await js(`document.querySelector('#table td .note').textContent`).then(t => /dentist/.test(t)), 'tags shown in table');
+check(await js(`summaryCsv()`).then(c => c.includes('caffeine before; dentist') && c.split('\n')[0].includes('pauses')), 'CSV has tags and pauses columns');
+const nBefore = await js(`sessions.length`);
+await js(`window.confirm = () => true; showResult(sessions[0], true); 1`); await sleep(200);
+await js(`$('resultDiscard').click(); 1`); await sleep(400); await load();
+check(await js(`sessions.length`) === nBefore - 1 && await js(`sessions[0].note`) !== 'edited later', 'session deleted and gone after reload');
+await shot('8-after-edit');
+
 // ---------- exports ----------
-const csv = await js(`summaryCsv()`); const lines = csv.trim().split('\n');
-check(lines.length === 2 && lines[0].split(',').length === lines[1].split(',').length, 'summary CSV columns align');
+const csv = await js(`summaryCsv()`); const lines = csv.trim().split('\n'); const ncol = lines[0].split(',').length;
+check(lines.length >= 2 && lines.every(l => l.split(',').length === ncol), `summary CSV: ${lines.length - 1} rows, ${ncol} columns aligned`);
 check(lines[0].includes('performance_score_pct') && lines[0].includes('response_speed'), 'summary CSV has score and speed');
 
 console.log(`\nconsole errors: ${errors.length}`); errors.forEach(e => console.log('  ' + e));
